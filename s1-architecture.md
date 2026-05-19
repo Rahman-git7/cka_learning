@@ -124,3 +124,70 @@ ps -aux | grep kube-scheduler                       # vérifier le process
 
 **Personnalisable via** : resource limits, taints/tolerations, node selector (détails section scheduling)
 
+## Kubelet
+
+Le **kubelet** c'est l'agent sur chaque worker node. C'est lui qui fait le vrai travail sur la machine.
+Il fait 3 choses :
+
+* Reçoit les instructions du scheduler via l'API server — "crée ce pod sur ce node"
+* Demande au container runtime (containerd) de lancer le container
+* Remonte le statut en permanence à l'API server — "mon pod tourne bien / il est mort"
+
+Analogie : si le scheduler est le chef de chantier qui décide où construire, le kubelet c'est l'ouvrier sur le terrain qui construit vraiment.
+
+**Point important** : le kubelet est le seul composant qui est jamais déployé automatiquement par **kubeadm**.
+
+ Tu dois l'installer manuellement sur chaque node. Ça tombe parfois en exam.
+
+ ## Kube Proxy
+
+**Rôle** : tourne sur chaque node, gère les règles réseau pour que les pods communiquent entre eux
+
+**Problème qu'il résout :**
+Un pod DB peut mourir et se relancer avec une nouvelle IP
+→ solution : créer un Service devant la DB
+
+**Le Service :**
+- Pas un pod, c'est un objet virtuel K8s gardé en mémoire
+- IP fixe qui change jamais
+- Sert d'intermédiaire stable devant des pods
+
+pod app → Service DB (IP fixe) → pod DB (IP variable)
+
+
+**kube-proxy** maintient ces règles de redirection sur chaque node
+
+## Pods
+
+**C'est quoi** : la plus petite unité déployable dans K8s, tourne à l'intérieur d'un node
+Un pod = une instance de ton application
+
+**Scaling :**
+- Plus d'users → on ajoute des pods, pas des containers dans le même pod
+- Node saturé → on ajoute un nouveau node avec ses pods
+
+```bash
+pod1 → container app
+pod2 → container app   ✅ bonne façon de scaler
+pod3 → container app
+````
+
+**Multi-container pods :**
+- Un pod peut avoir plusieurs containers mais c'est rare
+- Cas d'usage : un container principal + un helper (ex: collecteur de logs)
+- Ils partagent le même réseau et stockage
+- Le helper existe uniquement pour assister l'app principale
+
+
+**Avantages :**
+- Partagent automatiquement le même réseau et stockage
+- Pas de config manuelle contrairement à Docker --link
+- Vivent et meurent ensemble
+
+pod → container app web + container log collector
+
+**Commande de base :**
+```bash
+kubectl run nginx --image=nginx    # créer un pod
+kubectl get pods                   # lister les pods
+```
