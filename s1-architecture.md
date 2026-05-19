@@ -105,3 +105,22 @@ cat /etc/kubernetes/manifests/kube-controller-manager.yaml
 # Sans kubeadm
 cat /etc/systemd/system/kube-controller-manager.service
 ```
+
+## Kube Scheduler
+
+**Rôle** : décide sur quel node placer un pod, mais ne le crée pas (c'est le kubelet qui crée)
+
+**Comment il choisit :**
+1. Filtre — élimine les nodes incompatibles (pas assez CPU/RAM, taints, node selector...)
+2. Score — choisit le node qui aura le plus de ressources libres après placement
+
+**Si aucun node dispo** → pod reste en état `Pending`
+
+**Config :**
+```bash
+cat /etc/kubernetes/manifests/kube-scheduler.yaml  # kubeadm
+ps -aux | grep kube-scheduler                       # vérifier le process
+```
+
+**Personnalisable via** : resource limits, taints/tolerations, node selector (détails section scheduling)
+
