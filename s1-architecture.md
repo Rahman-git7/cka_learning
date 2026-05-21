@@ -191,3 +191,45 @@ pod → container app web + container log collector
 kubectl run nginx --image=nginx    # créer un pod
 kubectl get pods                   # lister les pods
 ```
+
+## Pods avec YAML
+
+**Les 4 champs obligatoires dans tout fichier K8s :**
+```yaml
+apiVersion: v1        # version de l'API K8s
+kind: Pod             # type d'objet
+metadata:             # infos du pod
+spec:                 # ce qu'on veut faire tourner
+```
+
+**Structure complète :**
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod        # identifiant unique du pod
+  labels:
+    app: myapp           # étiquette pour grouper/filtrer
+    type: frontend       # autre étiquette optionnelle
+spec:
+  containers:
+    - name: nginx        # nom du container
+      image: nginx       # image à pull
+```
+
+**name vs labels :**
+- `name` → identifiant unique, deux pods peuvent pas avoir le même
+- `labels` → étiquettes pour grouper et filtrer plusieurs pods
+
+**Indentation :**
+- Toujours 2 espaces, jamais de tabulations
+- Si quelque chose appartient à quelque chose → indent de 2 espaces
+- Le tiret `-` = élément d'une liste
+
+**Commandes :**
+```bash
+kubectl create -f pod.yaml    # créer depuis un fichier yaml
+kubectl get pods              # lister les pods
+kubectl describe pod myapp-pod # détails d'un pod
+```
+
