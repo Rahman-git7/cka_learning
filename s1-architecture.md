@@ -233,3 +233,46 @@ kubectl get pods              # lister les pods
 kubectl describe pod myapp-pod # détails d'un pod
 ```
 
+## ReplicaSet
+
+**Rôle** : garantit qu'un nombre défini de pods tourne en permanence
+- Si un pod meurt → le ReplicaSet en recrée un automatiquement
+- Utile même avec 1 seul pod (relance si crash)
+- Permet le load balancing entre plusieurs pods
+
+**ReplicationController vs ReplicaSet :**
+- ReplicationController → ancienne version, oublie-la
+- ReplicaSet → nouvelle version, toujours utiliser celle-ci ✅
+
+**Structure yaml :**
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-replicaset
+spec:
+  template:             
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+```
+
+**selector vs template :**
+- `selector` → identifie les pods existants à gérer (peut adopter des pods déjà existants)
+- `template` → utilisé pour créer de nouveaux pods si un pod meurt
+
+**Commandes :**
+```bash
+kubectl create -f replicaset.yaml
+kubectl get replicaset
+kubectl get pods
+kubectl delete replicaset myapp-replicaset
+```
