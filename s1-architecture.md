@@ -276,3 +276,53 @@ kubectl get replicaset
 kubectl get pods
 kubectl delete replicaset myapp-replicaset
 ```
+
+## Deployments
+
+**Rôle** : gère les ReplicaSets et permet les mises à jour sans coupure
+
+**Avantages vs ReplicaSet seul :**
+- Rolling updates → pods mis à jour un par un, aucune coupure pour les users
+- Rollback → revenir à la version précédente si problème
+- Pause/resume → grouper plusieurs changements avant de les appliquer
+
+**Rolling update :**
+```
+v1 v1 v1 v1   # état initial
+v2 v1 v1 v1   # pod 1 mis à jour
+v2 v2 v2 v2   # terminé, aucune coupure
+```
+
+**Structure yaml :**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+```
+
+**Commandes :**
+```bash
+kubectl create -f deployment.yaml
+kubectl get deployments
+kubectl get all                          # voir tout : deployment, replicaset, pods
+kubectl rollout pause deployment myapp   # grouper des changements
+kubectl rollout resume deployment myapp  # appliquer tous les changements
+kubectl rollout status deployment myapp  # voir l'état du déploiement
+kubectl rollout undo deployment myapp    # rollback version précédente
+```
+
+**En prod** : c'est le pipeline CI/CD (GitLab CI + ArgoCD) qui gère tout ça automatiquement
