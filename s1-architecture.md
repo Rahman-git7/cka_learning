@@ -326,3 +326,160 @@ kubectl rollout undo deployment myapp    # rollback version précédente
 ```
 
 **En prod** : c'est le pipeline CI/CD (GitLab CI + ArgoCD) qui gère tout ça automatiquement
+
+
+## Services
+
+**Rôle** : permet la connectivité entre les groupes de pods et vers l'extérieur
+
+**Loose coupling** : les composants sont indépendants, ils parlent au Service sans savoir où sont les pods derrière
+```
+frontend → Service backend → pod backend 1
+                           → pod backend 2
+```
+
+**3 types de Services :**
+
+**NodePort**
+- Expose un port sur le node pour rendre un pod accessible depuis l'extérieur
+- Un user peut accéder à l'app via `IP_du_node:port`
+```
+user → IP_node:30008 → Service → pod
+```
+
+**ClusterIP**
+- Crée une IP virtuelle fixe à l'intérieur du cluster
+- Permet la communication entre services (ex: frontend → backend)
+- Pas accessible depuis l'extérieur
+```
+pod frontend → Service ClusterIP → pod backend
+```
+
+**LoadBalancer**
+- Crée un load balancer cloud (ex: AWS ELB)
+- Distribue le trafic externe vers plusieurs nodes
+- C'est ce qu'on utilise en prod sur AWS/GCP/Azure
+```
+users → ELB → node1
+             → node2
+             → node3
+```
+
+**Résumé :**
+| Type | Accessible depuis | Usage |
+|------|------------------|-------|
+| ClusterIP | intérieur cluster uniquement | communication inter-pods |
+| NodePort | extérieur via IP du node | test, dev |
+| LoadBalancer | extérieur via ELB cloud | production ✅ |
+
+
+## NodePort
+
+**Rôle** : expose un pod sur un port du node, accessible depuis l'extérieur
+
+**Les 3 ports :**
+```
+user → nodePort (30008) → port (80) → targetPort (80) → pod
+```
+- `targetPort` → port du pod
+- `port` → port du Service
+- `nodePort` → port exposé sur le node (entre 30000-32767)
+
+**yaml :**
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+spec:
+  type: NodePort
+  ports:
+    - targetPort: 80
+      port: 80
+      nodePort: 30008
+  selector:
+    app: myapp    # cible les pods avec ce label
+```
+
+**Load balancing** : si plusieurs pods matchent le selector → distribution round-robin automatique
+
+## ClusterIP
+
+**Rôle** : IP fixe devant un groupe de pods pour la communication interne au cluster
+
+**Problème résolu** : les pods ont des IPs qui changent → on parle au Service qui lui a une IP fixe
+
+```
+pods frontend → Service backend (IP fixe) → pod backend 1
+                                           → pod backend 2
+pods backend  → Service redis (IP fixe)   → pod redis 1
+                                           → pod redis 2
+```
+
+**yaml :**
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: back-end
+spec:
+  type: ClusterIP
+  ports:
+    - targetPort: 80   # port du pod
+      port: 80         # port du Service
+  selector:
+    app: back-end      # cible les pods avec ce label
+```
+
+**Points clés :**
+- Accessible uniquement à l'intérieur du cluster
+- Load balancing automatique entre les pods
+- C'est le type par défaut si tu ne spécifies pas de type
+
+## LoadBalancer
+
+**Problème du NodePort en prod :**
+- Les users doivent retenir des IP:port → `192.168.56.70:30035` pas user-friendly
+- Plusieurs nodes → plusieurs IPs possibles pour accéder à la même app
+
+**Solution — LoadBalancer :**
+Un seul point d'entrée pour les users → `http://example-vote.com`
+
+**Ce que le schéma montre :**
+```
+user
+  ↓
+http://example-vote.com
+  ↓
+Load Balancer (GCP/AWS/Azure)
+  ↓
+Voting-App Service (NodePort 30035) → pods voting-app sur tous les nodes
+Result-App Service (NodePort 31061) → pods result-app sur tous les nodes
+```
+
+**Comment l'activer :**
+Juste changer le type dans le yaml — K8s crée automatiquement le load balancer cloud
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: voting-app-service
+spec:
+  type: LoadBalancer   # au lieu de NodePort
+  ports:
+    - targetPort: 80
+      port: 80
+      nodePort: 30035
+  selector:
+    app: voting-app
+```
+
+**Résumé des 3 types :**
+| Type | Accès | Usage |
+|------|-------|-------|
+| ClusterIP | interne cluster | communication inter-pods |
+| NodePort | IP:port du node | dev/test |
+| LoadBalancer | URL unique | production ✅ |
+
+**Important** : LoadBalancer ne fonctionne que sur les clouds (AWS, GCP, Azure) — pas sur un cluster local
