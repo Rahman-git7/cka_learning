@@ -483,3 +483,76 @@ spec:
 | LoadBalancer | URL unique | production ✅ |
 
 **Important** : LoadBalancer ne fonctionne que sur les clouds (AWS, GCP, Azure) — pas sur un cluster local
+
+## Namespaces
+
+**Rôle** : diviser un cluster en sous-clusters virtuels pour isoler les ressources
+
+**Analogie** : deux personnes qui s'appellent Mark dans deux maisons différentes. Dans sa maison on dit "Mark", depuis l'extérieur on dit "Mark Smith" ou "Mark Williams"
+
+**Namespaces par défaut :**
+| Namespace | Usage |
+|-----------|-------|
+| `default` | tes workloads |
+| `kube-system` | composants internes K8s (DNS, networking...) |
+| `kube-public` | ressources publiques |
+
+**Ne jamais toucher à `kube-system`** ⚠️
+
+**Communication entre namespaces :**
+```bash
+# Même namespace → nom court
+mysql.connect("db-service")
+
+# Namespace différent → FQDN complet
+mysql.connect("db-service.dev.svc.cluster.local")
+#              <service>.<namespace>.svc.cluster.local
+```
+
+**Commandes essentielles :**
+```bash
+kubectl get pods                          # namespace courant
+kubectl get pods --all-namespaces         # tous les namespaces
+kubectl create namespace dev              # créer un namespace
+kubectl apply -f pod.yaml --namespace=dev # déployer dans un namespace
+
+# Changer de namespace par défaut
+kubectl config set-context $(kubectl config current-context) --namespace=dev
+```
+
+**Resource Quotas** : limiter CPU/RAM/pods par namespace
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: dev
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    limits.memory: 10Gi
+```
+
+## Impératif vs Déclaratif
+
+**Impératif** : tu dis à K8s comment faire étape par étape
+**Déclaratif** : tu décris l'état final dans un yaml, K8s se débrouille
+
+**Analogie :**
+- Impératif = donner des directions étape par étape à un taxi
+- Déclaratif = entrer la destination dans Uber
+
+**Quand utiliser quoi :**
+| Situation | Approche |
+|-----------|----------|
+| Exam CKA, aller vite | Impératif |
+| Prod / équipe / GitOps | Déclaratif |
+
+**Règle d'or en prod :**
+- Toujours modifier le yaml local → puis `kubectl apply`
+- Jamais `kubectl edit` en prod → désynchronise le local et le cluster
+
+**`create` vs `apply` :**
+- `kubectl create` → crée seulement, erreur si existe déjà
+- `kubectl apply` → crée OU met à jour, jamais d'erreur ✅

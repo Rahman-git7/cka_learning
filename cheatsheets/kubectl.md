@@ -1,41 +1,75 @@
-# La seule commande etcdctl qui compte pour le CKA
+# kubectl Cheatsheet CKA
+
+## etcd
+```bash
 export ETCDCTL_API=3
 etcdctl snapshot save /backup/etcd-backup.db \
   --cacert /etc/kubernetes/pki/etcd/ca.crt \
   --cert /etc/kubernetes/pki/etcd/server.crt \
   --key /etc/kubernetes/pki/etcd/server.key
+```
 
+## Pods
+```bash
+kubectl run nginx --image=nginx                           # créer un pod
+kubectl run nginx --image=nginx --dry-run=client -o yaml  # générer yaml sans créer
+kubectl run nginx --image=nginx --dry-run=client -o yaml > pod.yaml  # sauvegarder yaml
+kubectl describe pod nginx                                # détails + image du pod
+kubectl get pods -o wide                                  # détails + node du pod
+kubectl delete pod nginx                                  # supprimer un pod
+kubectl delete -f pod.yaml                               # supprimer via fichier
+```
 
-  ## Lab pod 
+## ReplicaSet
+```bash
+kubectl edit replicaset new-replicaset          # éditer (sans .yaml)
+kubectl apply -f new-replicaset.yaml            # appliquer après édition fichier
+kubectl scale --replicas=3 rs new-replicaset    # scaler directement
+```
+⚠️ Après `kubectl edit` → supprimer les pods existants pour qu'ils prennent la nouvelle config
 
-Pour créer un pod avec l'image nginx: 
+## Deployments
+```bash
+kubectl create deployment nginx --image=nginx                           # créer
+kubectl create deployment nginx --image=nginx --replicas=4              # avec replicas
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml > deploy.yaml
+kubectl scale deployment nginx --replicas=5                             # scaler
+kubectl set image deployment nginx nginx=nginx:1.18                     # changer image
+kubectl rollout status deployment nginx                                 # état du rollout
+kubectl rollout undo deployment nginx                                   # rollback
+kubectl rollout pause deployment nginx                                  # grouper changements
+kubectl rollout resume deployment nginx                                 # appliquer
+```
 
-  `kubectl run nginx --image=nginx`
+## Apply / Create / Delete
+```bash
+kubectl apply -f fichier.yaml     # créer ou mettre à jour ✅ (toujours utiliser ça)
+kubectl create -f fichier.yaml    # créer seulement (erreur si existe déjà)
+kubectl replace -f fichier.yaml   # remplacer de façon impérative
+kubectl delete -f fichier.yaml    # supprimer
+```
 
-Pour describe un pod notamment pour voir son image : 
+## Services
+```bash
+kubectl expose deployment nginx --port=80 --type=NodePort   # exposer un deployment
+kubectl expose pod nginx --port=80 --name=nginx-service     # exposer un pod
+```
 
-  `kubectl describe pod nginx`
+## Namespaces
+```bash
+kubectl get pods --namespace=kube-system        # pods d'un namespace spécifique
+kubectl get pods --all-namespaces               # tous les namespaces
+kubectl create namespace dev                    # créer un namespace
+kubectl apply -f pod.yaml --namespace=dev       # déployer dans un namespace
+kubectl get all -n marketing                    # tout voir dans un namespace
+kubectl config set-context $(kubectl config current-context) --namespace=dev  # changer namespace par défaut
+```
 
-Pour plus de details sur le pods (par exemple le node sur lequel il tourne) :
-
-`kubectl get pods -o wide`
-
-## Replicaset
-
-Apès avoir edit un replicaset 
-
-`kubectl edit replicaset new-replicaset.yaml`
-
-il faut supp les pods pour qu'ils prennent la nouvelle config 
-
-Pour scale un replicaset :
-
-`kubectl scale --replicas=3 rs new-replicaset`
-
-Si on passe par edit pour scale : 
-
-`kubectl edit replicaset new-replicaset.yaml`
-
-il faut faire un appy juste après pour appliquer les changements : 
-
-`kubectl apply -f new-replicaset.yaml`
+## Troubleshooting
+```bash
+cat /etc/kubernetes/manifests/kube-apiserver.yaml       # config API server (kubeadm)
+cat /etc/systemd/system/kube-apiserver.service          # config API server (sans kubeadm)
+ps -aux | grep kube-apiserver                           # vérifier process API server
+ps -aux | grep kube-scheduler                           # vérifier process scheduler
+ps -aux | grep kubelet                                  # vérifier process kubelet
+```
