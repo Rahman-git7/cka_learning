@@ -537,6 +537,7 @@ spec:
 ## Impératif vs Déclaratif
 
 **Impératif** : tu dis à K8s comment faire étape par étape
+
 **Déclaratif** : tu décris l'état final dans un yaml, K8s se débrouille
 
 **Analogie :**
