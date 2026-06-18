@@ -99,3 +99,59 @@ metadata:
 | labels | grouper et filtrer |
 | selectors | sélectionner selon les labels |
 | annotations | métadonnées informatives uniquement |
+
+
+## Taints & Tolerations
+
+**Concept :**
+- `taint` → restriction posée sur un node ("je refuse les pods par défaut")
+- `toleration` → permission sur un pod ("j'accepte ce taint, laisse-moi entrer")
+
+**Analogie :**
+- Taint = panneau "accès interdit" sur le node
+- Toleration = badge qui permet de passer quand même
+
+**⚠️ Point important :**
+Une toleration ne force pas le pod sur ce node — elle lui donne juste le droit d'y aller.
+Le scheduler peut encore le placer ailleurs. Pour forcer → utiliser `nodeAffinity`
+
+**Les 3 effets de taint :**
+| Effect | Comportement |
+|--------|-------------|
+| `NoSchedule` | nouveaux pods sans toleration refusés, pods existants restent |
+| `PreferNoSchedule` | le scheduler évite ce node mais pas garanti |
+| `NoExecute` | pods sans toleration refusés + pods existants expulsés immédiatement |
+
+**Commandes :**
+```bash
+# Ajouter un taint
+kubectl taint nodes node1 app=blue:NoSchedule
+
+# Supprimer un taint (- à la fin)
+kubectl taint nodes node1 app=blue:NoSchedule-
+
+# Voir les taints d'un node
+kubectl describe node node1 | grep Taint
+```
+
+**Toleration dans le yaml d'un pod :**
+```yaml
+spec:
+  tolerations:
+    - key: "app"
+      operator: "Equal"
+      value: "blue"
+      effect: "NoSchedule"
+  containers:
+    - name: nginx
+      image: nginx
+```
+
+**Cas d'usage en prod :**
+- Node GPU réservé aux workloads ML
+- Node DB réservé aux bases de données
+- Maintenance → `kubectl drain` pose un taint `NoExecute` automatiquement
+
+**Master node :**
+- K8s pose un taint automatique sur le master
+- Best practice : ne jamais y déployer des pods applicatifs
