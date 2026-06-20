@@ -205,3 +205,59 @@ kubectl label nodes node1 size=Large       # ajouter un label à un node
 kubectl get nodes --show-labels            # voir les labels des nodes
 kubectl label nodes node1 size-            # supprimer un label (- à la fin)
 ```
+
+## Node Affinity
+
+**Rôle** : version avancée de nodeSelector — permet des règles plus flexibles (plusieurs valeurs, préférences)
+
+**nodeSelector vs nodeAffinity :**
+| | nodeSelector | nodeAffinity |
+|---|---|---|
+| Critères | 1 seule valeur exacte | plusieurs valeurs, opérateurs (In, NotIn...) |
+| Flexibilité | obligatoire uniquement | obligatoire OU préférence |
+
+**Les 2 combos qui existent :**
+
+**1. requiredDuringScheduling + IgnoredDuringExecution**
+```
+Au placement → node DOIT avoir le label, sinon pod reste Pending
+Pendant l'exécution → si le label du node change → rien ne se passe, pod reste où il est
+```
+
+**2. preferredDuringScheduling + IgnoredDuringExecution**
+```
+Au placement → on essaie de matcher, sinon pod placé ailleurs quand même
+Pendant l'exécution → pareil, rien ne se passe si le label change
+```
+
+**Résumé simple :**
+```
+preferred → pas de match → pod placé quand même ✅
+required  → pas de match → pod reste Pending ❌
+```
+
+**yaml — required :**
+```yaml
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: size
+                operator: In
+                values:
+                  - Large
+                  - Medium
+```
+
+**Pourquoi "IgnoredDuringExecution" :**
+Si le label du node change après que le pod soit placé → K8s n'expulse pas le pod, par souci de stabilité
+
+**Cas d'usage en prod :**
+- Clusters avec types d'instances variés (EKS node groups)
+- Multi-AZ → forcer un pod à rester dans une AZ
+- Spot vs On-Demand
+- Isolation dev/staging/prod
+
+**Bonne pratique** : utiliser `preferred` plus souvent que `required` pour rester flexible
