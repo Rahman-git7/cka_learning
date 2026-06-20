@@ -155,3 +155,53 @@ spec:
 **Master node :**
 - K8s pose un taint automatique sur le master
 - Best practice : ne jamais y déployer des pods applicatifs
+
+
+## Node Selector
+
+**Rôle** : forcer un pod à aller sur un node avec un label spécifique
+
+**Différence avec taints/tolerations :**
+- `taint/toleration` → empêche un pod d'aller quelque part (restriction)
+- `nodeSelector` → force un pod à aller quelque part (ciblage)
+
+**Pourquoi l'utiliser :**
+Le scheduler optimise selon CPU/RAM dispo, mais connaît pas les contraintes métier (besoin SSD, GPU, région spécifique...)
+
+**Cas d'usage réels :**
+- Pod avec besoin de RAM élevé → node taillé pour ça
+- Pod qui a besoin d'un SSD → `nodeSelector: disk=ssd`
+- Pod GPU → `nodeSelector: gpu=true`
+- Contrainte de région → `nodeSelector: region=eu-west`
+
+**Utilisation en 2 étapes :**
+
+**1. Labelliser le node**
+```bash
+kubectl label nodes node1 size=Large
+```
+
+**2. Cibler le label dans le pod**
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  nodeSelector:
+    size: Large
+  containers:
+    - name: nginx
+      image: nginx
+```
+
+**Modifier le placement d'un pod existant :**
+- Pod seul → immuable, faut delete + recreate
+- Deployment → modifier `nodeSelector` dans le yaml + `kubectl apply` → rolling update automatique ✅
+
+**Commandes utiles :**
+```bash
+kubectl label nodes node1 size=Large       # ajouter un label à un node
+kubectl get nodes --show-labels            # voir les labels des nodes
+kubectl label nodes node1 size-            # supprimer un label (- à la fin)
+```
