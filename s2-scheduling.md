@@ -261,3 +261,142 @@ Si le label du node change après que le pod soit placé → K8s n'expulse pas l
 - Isolation dev/staging/prod
 
 **Bonne pratique** : utiliser `preferred` plus souvent que `required` pour rester flexible
+
+### Operators dans nodeAffinity
+
+**4 opérateurs disponibles :**
+```
+In           → la valeur doit être dans cette liste
+NotIn        → la valeur doit PAS être dans cette liste
+Exists       → la clé doit juste exister (peu importe sa valeur)
+DoesNotExist → la clé doit PAS exister
+```
+
+**Quand utiliser Exists :**
+Certains labels ont une clé mais pas de valeur (marqueurs) :
+```
+node-role.kubernetes.io/control-plane=    # pas de valeur après le =
+```
+
+**Comparaison :**
+
+Label avec valeur (`color=blue`) :
+```yaml
+matchExpressions:
+  - key: color
+    operator: In
+    values:
+      - blue
+```
+
+Label sans valeur (`node-role.kubernetes.io/control-plane=`) :
+```yaml
+matchExpressions:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    # pas de "values" du tout
+```
+
+## Resource Requirements (CPU/Memory)
+
+**Resource Request** = minimum garanti pour le container
+**Resource Limit** = maximum autorisé
+
+```yaml
+spec:
+  containers:
+    - name: simple-webapp
+      image: simple-webapp
+      resources:
+        requests:
+          memory: "1Gi"
+          cpu: "1"
+        limits:
+          memory: "2Gi"
+          cpu: "2"
+```
+
+**CPU :**
+- Valeurs fractionnaires possibles : `0.1` ou `100m` (m = milli)
+- 1 CPU = 1 vCPU AWS = 1 core GCP/Azure = 1 hyperthread
+
+**Comportement en cas de dépassement :**
+| Ressource | Dépasse la limit | Comportement |
+|-----------|------------------|---------------|
+| CPU | oui | throttled (ralenti, pod reste vivant) |
+| Memory | oui | OOMKilled (pod tué) |
+
+**Pourquoi la différence** : CPU compressible (on peut réduire), RAM incompressible (tout ou rien)
+
+---
+
+**4 scénarios possibles :**
+
+| Configuration | Comportement |
+|---|---|
+| Ni requests ni limits | Pod peut consommer toutes les ressources du node → risque d'affamer les autres pods |
+| Limits seuls | K8s utilise les limits comme requests par défaut |
+| Requests + limits | Garanti le minimum, peut burst jusqu'à la limit si dispo ✅ best practice |
+| Requests seuls | Garanti le minimum, mais peut consommer sans plafond → risque |
+
+---
+
+## LimitRange
+
+**Rôle** : applique des valeurs par défaut de requests/limits au niveau du **namespace**, si le pod n'en définit pas lui-même
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-resource-constraint
+  namespace: dev
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"        # limit par défaut si non précisé
+      defaultRequest:
+        cpu: "500m"        # request par défaut si non précisé
+      max:
+        cpu: "1"           # max autorisé même si précisé manuellement
+      min:
+        cpu: "100m"        # min autorisé même si précisé manuellement
+```
+
+**Important** : si le pod a déjà ses propres requests/limits → le LimitRange ne s'applique pas (priorité au yaml du pod)
+**Important** : les changements de LimitRange n'affectent que les nouveaux pods, pas les pods déjà existants
+
+---
+
+## ResourceQuota
+
+**Rôle** : limite la somme **totale** de ressources consommables par tout le namespace (pas juste 1 pod)
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 4Gi
+    limits.cpu: "10"
+    limits.memory: 10Gi
+```
+
+---
+
+**Résumé pour entretien :**
+```
+requests/limits → niveau pod/container
+LimitRange       → valeurs par défaut + bornes min/max, niveau namespace
+ResourceQuota    → plafond total du namespace, tous pods confondus
+```
+
+**Troubleshooting :**
+```bash
+kubectl describe pod <pod-name>   # voir pourquoi un pod reste Pending (souvent : ressources insuffisantes)
+```
