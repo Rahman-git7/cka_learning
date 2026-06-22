@@ -300,6 +300,7 @@ matchExpressions:
 ## Resource Requirements (CPU/Memory)
 
 **Resource Request** = minimum garanti pour le container
+
 **Resource Limit** = maximum autorisé
 
 ```yaml
@@ -399,4 +400,56 @@ ResourceQuota    → plafond total du namespace, tous pods confondus
 **Troubleshooting :**
 ```bash
 kubectl describe pod <pod-name>   # voir pourquoi un pod reste Pending (souvent : ressources insuffisantes)
+```
+
+## DaemonSet
+
+**Rôle** : garantit qu'une copie d'un pod tourne sur **chaque node** du cluster
+- Nouveau node ajouté → pod créé automatiquement
+- Node supprimé → pod supprimé automatiquement
+
+**Différence avec ReplicaSet :**
+```
+ReplicaSet  → "je veux X réplicas" (nombre fixe)
+DaemonSet   → "je veux 1 pod sur chaque node" (automatique)
+```
+
+**Cas d'usage réels :**
+- Agent de monitoring → Prometheus node-exporter, Datadog
+- Agent de logs → Fluentd, Promtail (Loki) ← utilisé chez Efficity
+- Réseau → kube-proxy (K8s l'utilise en interne via DaemonSet)
+- Sécurité → Falco, Cilium
+
+**yaml — identique au ReplicaSet sauf 2 différences :**
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet        # ← pas ReplicaSet
+metadata:
+  name: monitoring-agent
+spec:
+                       # ← pas de "replicas"
+  selector:
+    matchLabels:
+      app: monitoring-agent
+  template:
+    metadata:
+      labels:
+        app: monitoring-agent
+    spec:
+      containers:
+        - name: monitoring-agent
+          image: monitoring-agent
+```
+
+**Commandes :**
+```bash
+kubectl get daemonsets
+kubectl describe daemonset monitoring-agent
+kubectl get daemonsets --all-namespaces    # voir les daemonsets système K8s
+```
+
+**Comment le DaemonSet place les pods :**
+```
+Avant v1.12 → forçait nodeName directement, bypassait le scheduler
+Depuis v1.12 → utilise nodeAffinity + scheduler normal ✅
 ```
